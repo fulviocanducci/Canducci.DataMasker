@@ -1,7 +1,12 @@
 ﻿
 using Canducci.DataMasker.Attributes;
 using Canducci.DataMasker.Enums;
+using System;
+using System.Globalization;
 using System.Linq;
+using System.Net.Mail;
+using System.Reflection;
+using System.Text;
 
 namespace Canducci.DataMasker.Utils
 {
@@ -34,11 +39,38 @@ namespace Canducci.DataMasker.Utils
                     return LastCharacters(value);
 
                 case MaskStrategy.Custom:
-                    return value;
+                    return Custom(value, attribute);
 
                 default:
                     return value;
             }
+        }
+
+        private static string Custom(string value, MaskAttribute attribute)
+        {
+            if (attribute.CustomType == null || string.IsNullOrWhiteSpace(attribute.CustomMethod))
+            {
+                throw new InvalidOperationException("Custom mask configuration is invalid.");
+            }
+
+            var method = attribute.CustomType.GetMethod(
+                attribute.CustomMethod,
+                BindingFlags.Static |
+                BindingFlags.Public |
+                BindingFlags.NonPublic,
+                null,
+                new[] { typeof(string) },
+                null);
+
+            if (method == null ||
+                method.ReturnType != typeof(string) ||
+                method.ContainsGenericParameters)
+            {
+                throw new InvalidOperationException(
+                    $"Custom method '{attribute.CustomMethod}' was not found or has an invalid signature.");
+            }
+
+            return (string)method.Invoke(null, new object[] { value });
         }
 
         private static string MaskPartial(string value, MaskType type)
@@ -143,9 +175,14 @@ namespace Canducci.DataMasker.Utils
             }
 
             return string.Join(" ", value.Split(' ').Select(word =>
-                string.IsNullOrEmpty(word)
-                    ? word
-                    : word.Substring(0, 1) + new string('*', word.Length - 1)));
+            {
+                if (string.IsNullOrEmpty(word))
+                {
+                    return word;
+                }
+
+                return word.Substring(0, 1) + new string('*', word.Length - 1);
+            }));
         }
 
         internal static string Cpf(string value)
@@ -195,36 +232,37 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
-            return value.Substring(0, value.Length - 3).Length > 0
-                ? new string('*', value.Length - 3) + value.Substring(value.Length - 3)
-                : value;
+            if (value.Length <= 3)
+            {
+                return value;
+            }
+
+            return new string('*', value.Length - 3)
+                + value.Substring(value.Length - 3);
         }
 
         internal static string Email(string value)
         {
-            if (IsNotValue(value))
+            if (!IsValidEmail(value))
             {
                 return value;
             }
 
             var index = value.IndexOf('@');
 
-            if (index <= 0 || index == value.Length - 1)
-            {
-                return value;
-            }
-
-            return value.Substring(0, 1) + "***" + value.Substring(index);
+            return value.Substring(0, 1)
+                + "***"
+                + value.Substring(index);
         }
 
         internal static string Phone(string value)
         {
-            return MaskFormattedDigits(value, 4);
+            return MaskFormattedDigits(value, 4, 10);
         }
 
         internal static string Mobile(string value)
         {
-            return MaskFormattedDigits(value, 4);
+            return MaskFormattedDigits(value, 4, 11);
         }
 
         internal static string Cep(string value)
@@ -260,18 +298,15 @@ namespace Canducci.DataMasker.Utils
 
                 var result = word.Select(character =>
                 {
-                    if (char.IsDigit(character))
+                    if (char.IsDigit(character) || char.IsLetter(character))
                     {
                         return '*';
                     }
 
-                    return char.IsLetter(character)
-                        ? '*'
-                        : character;
+                    return character;
                 }).ToArray();
 
-                var firstLetter = word.IndexOfAny(
-                    word.Where(char.IsLetter).ToArray());
+                var firstLetter = Array.FindIndex(word.ToCharArray(), char.IsLetter);
 
                 if (firstLetter >= 0)
                 {
@@ -289,14 +324,17 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
-            var parts = value.Split('/');
-
-            if (parts.Length != 3 || parts[2].Length != 4)
+            if (!DateTime.TryParseExact(
+                value,
+                "dd/MM/yyyy",
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.None,
+                out var date))
             {
                 return value;
             }
 
-            return "**/**/" + parts[2];
+            return string.Format("**/**/{0:yyyy}", date);
         }
 
         internal static string IpAddress(string value)
@@ -315,9 +353,11 @@ namespace Canducci.DataMasker.Utils
 
             foreach (var part in parts)
             {
-                int octet;
-
-                if (!int.TryParse(part, out octet) || octet < 0 || octet > 255)
+                if (!byte.TryParse(
+                    part,
+                    NumberStyles.None,
+                    CultureInfo.InvariantCulture,
+                    out _))
                 {
                     return value;
                 }
@@ -348,7 +388,13 @@ namespace Canducci.DataMasker.Utils
 
         internal static string BankAccount(string value)
         {
-            return LastCharacters(value);
+            if (IsNotValue(value))
+            {
+                return value;
+            }
+
+            return new string(value.Select(character =>
+                char.IsDigit(character) ? '*' : character).ToArray());
         }
 
         internal static string Pix(string value)
@@ -368,19 +414,13 @@ namespace Canducci.DataMasker.Utils
 
         private static string PixEmail(string value)
         {
+            if (!IsValidEmail(value))
+            {
+                return value;
+            }
+
             var parts = value.Split('@');
-
-            if (parts.Length != 2 || parts[0].Length == 0)
-            {
-                return value;
-            }
-
             var domain = parts[1].Split('.');
-
-            if (domain.Length < 2 || domain[0].Length == 0)
-            {
-                return value;
-            }
 
             return parts[0].Substring(0, 1)
                 + new string('*', parts[0].Length - 1)
@@ -391,7 +431,11 @@ namespace Canducci.DataMasker.Utils
                 + string.Join(".", domain.Skip(1));
         }
 
-        private static string MaskFormattedDigits(string value, int visible)
+
+        private static string MaskFormattedDigits(
+            string value,
+            int visible,
+            int expectedDigits)
         {
             if (IsNotValue(value))
             {
@@ -400,18 +444,45 @@ namespace Canducci.DataMasker.Utils
 
             var digits = GetDigits(value);
 
-            if (digits.Length <= visible)
+            if (digits.Length != expectedDigits)
             {
                 return value;
             }
 
-            var remaining = digits.Length - visible;
-            var result = new System.Text.StringBuilder();
+            var openParenthesis = value.IndexOf('(');
+            var closeParenthesis = value.IndexOf(')');
+
+            var areaCodeStart = openParenthesis >= 0 && closeParenthesis > openParenthesis
+                ? openParenthesis
+                : -1;
+
+            var areaCodeEnd = areaCodeStart >= 0
+                ? closeParenthesis
+                : -1;
+
+            var areaCodeDigits = areaCodeStart >= 0
+                ? GetDigits(value.Substring(areaCodeStart, areaCodeEnd - areaCodeStart + 1)).Length
+                : 0;
+
+            var remaining = digits.Length - visible - areaCodeDigits;
+            var result = new StringBuilder();
             var masked = 0;
 
-            foreach (var character in value)
+            for (var i = 0; i < value.Length; i++)
             {
+                var character = value[i];
+
                 if (!char.IsDigit(character))
+                {
+                    result.Append(character);
+                    continue;
+                }
+
+                var isAreaCode = areaCodeStart >= 0 &&
+                    i > areaCodeStart &&
+                    i < areaCodeEnd;
+
+                if (isAreaCode)
                 {
                     result.Append(character);
                     continue;
@@ -431,8 +502,38 @@ namespace Canducci.DataMasker.Utils
             return result.ToString();
         }
 
+
+        private static bool IsValidEmail(string value)
+        {
+            if (IsNotValue(value) || value.Any(char.IsWhiteSpace))
+            {
+                return false;
+            }
+
+            try
+            {
+                var address = new MailAddress(value);
+
+                return string.Equals(
+                    address.Address,
+                    value,
+                    StringComparison.OrdinalIgnoreCase)
+                    && !string.IsNullOrEmpty(address.User)
+                    && address.Host.Contains(".");
+            }
+            catch (FormatException)
+            {
+                return false;
+            }
+        }
+
         private static string GetDigits(string value)
         {
+            if (IsNotValue(value))
+            {
+                return value;
+            }
+
             return new string(value.Where(char.IsDigit).ToArray());
         }
     }
