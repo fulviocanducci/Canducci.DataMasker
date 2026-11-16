@@ -1,5 +1,6 @@
 ﻿using Canducci.DataMasker.Attributes;
 using Canducci.DataMasker.Enums;
+using System.Collections.Generic;
 
 namespace Canducci.DataMasker.Tests
 {
@@ -9,6 +10,7 @@ namespace Canducci.DataMasker.Tests
         {
             private static int _constructorCount;
             private static int _writeOnlySetCount;
+            private readonly Dictionary<int, string> _items = new Dictionary<int, string>();
 
             public PropertyModel()
             {
@@ -47,8 +49,14 @@ namespace Canducci.DataMasker.Tests
             [Mask(MaskType.Name)]
             public string this[int index]
             {
-                get;
-                set;
+                get
+                {
+                    return _items.TryGetValue(index, out var value) ? value : null;
+                }
+                set
+                {
+                    _items[index] = value;
+                }
             }
 
             public static void ResetCounters()
