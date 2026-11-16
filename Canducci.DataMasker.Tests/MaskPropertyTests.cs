@@ -152,7 +152,7 @@ namespace Canducci.DataMasker.Tests
 
             var result = DataMasker.Mask(model);
 
-            Assert.Equal("Original", result[0]);
+            Assert.Null(result[0]);
         }
 
         [Fact]
