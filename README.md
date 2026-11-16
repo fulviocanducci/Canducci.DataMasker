@@ -8,7 +8,7 @@
 
 The library does more than replace characters in a string: it can create a masked copy of an object graph, traverse nested objects and supported collections, and preserve reference relationships while leaving the source object unchanged.
 
-**Documentation:** [Português (Brasil)](README.pt-BR.md)
+**Documentation:** [Português (Brasil)](https://github.com/fulviocanducci/Canducci.DataMasker/blob/master/README.pt-BR.md)
 
 ## Contents
 

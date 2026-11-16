@@ -8,7 +8,7 @@
 
 A biblioteca vai além de substituir caracteres em uma string: ela pode criar uma cópia mascarada de um grafo de objetos, percorrer objetos aninhados e coleções suportadas e preservar os relacionamentos entre referências sem modificar o objeto de origem.
 
-**Documentation:** [English](README.md)
+**Documentação:** [English](https://github.com/fulviocanducci/Canducci.DataMasker/blob/master/README.md)
 
 ## Índice
 
