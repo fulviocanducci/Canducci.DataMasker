@@ -1,4 +1,4 @@
-﻿
+
 using Canducci.DataMasker.Attributes;
 using Canducci.DataMasker.Enums;
 using System;
@@ -461,60 +461,51 @@ namespace Canducci.DataMasker.Utils
             }
 
             var digits = GetDigits(value);
+            var hasBrazilianCountryCode = digits.Length == expectedDigits + 2 &&
+                digits.StartsWith("55", StringComparison.Ordinal);
 
-            if (digits.Length != expectedDigits)
+            if (digits.Length != expectedDigits && !hasBrazilianCountryCode)
             {
                 return value;
             }
 
-            var openParenthesis = value.IndexOf('(');
-            var closeParenthesis = value.IndexOf(')');
+            var nationalDigits = hasBrazilianCountryCode
+                ? digits.Substring(2)
+                : digits;
 
-            var areaCodeStart = openParenthesis >= 0 && closeParenthesis > openParenthesis
-                ? openParenthesis
-                : -1;
-
-            var areaCodeEnd = areaCodeStart >= 0
-                ? closeParenthesis
-                : -1;
-
-            var areaCodeDigits = areaCodeStart >= 0
-                ? GetDigits(value.Substring(areaCodeStart, areaCodeEnd - areaCodeStart + 1)).Length
-                : 0;
-
-            var remaining = digits.Length - visible - areaCodeDigits;
-            var result = new StringBuilder();
-            var masked = 0;
-
-            for (var i = 0; i < value.Length; i++)
+            if (nationalDigits.Length != expectedDigits)
             {
-                var character = value[i];
+                return value;
+            }
 
+            var areaCodeDigits = 2;
+            var countryCodeDigits = hasBrazilianCountryCode ? 2 : 0;
+            var firstMaskedDigit = countryCodeDigits + areaCodeDigits;
+            var lastVisibleDigit = digits.Length - visible;
+            var result = new StringBuilder(value.Length);
+            var digitIndex = 0;
+
+            foreach (var character in value)
+            {
                 if (!char.IsDigit(character))
                 {
                     result.Append(character);
                     continue;
                 }
 
-                var isAreaCode = areaCodeStart >= 0 &&
-                    i > areaCodeStart &&
-                    i < areaCodeEnd;
+                var isCountryCodeOrAreaCode = digitIndex < firstMaskedDigit;
+                var isLastVisibleDigit = digitIndex >= lastVisibleDigit;
 
-                if (isAreaCode)
-                {
-                    result.Append(character);
-                    continue;
-                }
-
-                if (masked < remaining)
+                if (!isCountryCodeOrAreaCode && !isLastVisibleDigit)
                 {
                     result.Append('*');
-                    masked++;
                 }
                 else
                 {
                     result.Append(character);
                 }
+
+                digitIndex++;
             }
 
             return result.ToString();
