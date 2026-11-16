@@ -64,6 +64,36 @@ namespace Canducci.DataMasker.Tests
                     method));
         }
 
+        [Fact]
+        public void Constructor_ShouldRejectUndefinedMaskType()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new MaskAttribute((MaskType)999));
+        }
+
+        [Fact]
+        public void Constructor_ShouldRejectUndefinedMaskStrategy()
+        {
+            Assert.Throws<ArgumentOutOfRangeException>(() =>
+                new MaskAttribute(MaskType.Name, (MaskStrategy)999));
+        }
+
+        [Fact]
+        public void Constructor_ShouldRequireCustomMethodForCustomStrategy()
+        {
+            Assert.Throws<ArgumentException>(() =>
+                new MaskAttribute(MaskType.Name, MaskStrategy.Custom));
+        }
+
+        [Fact]
+        public void Constructor_ShouldAcceptDefinedMaskTypeAndStrategy()
+        {
+            var attribute = new MaskAttribute(MaskType.Name, MaskStrategy.Full);
+
+            Assert.Equal(MaskType.Name, attribute.Type);
+            Assert.Equal(MaskStrategy.Full, attribute.Strategy);
+        }
+
         public static class MaskCustom
         {
             public static string MaskNome(string value)
