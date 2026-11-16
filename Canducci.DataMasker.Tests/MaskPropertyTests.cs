@@ -41,6 +41,16 @@ namespace Canducci.DataMasker.Tests
 
             public DateTime DataNascimento { get; set; }
 
+            [Mask(MaskType.Name)]
+            public static string GlobalName { get; set; }
+
+            [Mask(MaskType.Name)]
+            public string this[int index]
+            {
+                get;
+                set;
+            }
+
             public static void ResetCounters()
             {
                 _constructorCount = 0;
@@ -118,6 +128,34 @@ namespace Canducci.DataMasker.Tests
         }
 
         [Fact]
+        public void Mask_ShouldNotModifyStaticProperties()
+        {
+            PropertyModel.GlobalName = "Fulvio";
+            var model = new PropertyModel
+            {
+                Nome = "Fulvio"
+            };
+
+            DataMasker.Mask(model);
+
+            Assert.Equal("Fulvio", PropertyModel.GlobalName);
+        }
+
+        [Fact]
+        public void Mask_ShouldIgnoreIndexerProperties()
+        {
+            var model = new PropertyModel
+            {
+                Nome = "Fulvio"
+            };
+            model[0] = "Original";
+
+            var result = DataMasker.Mask(model);
+
+            Assert.Null(result[0]);
+        }
+
+        [Fact]
         public void Mask_ShouldCopyInheritedProperties()
         {
             var model = new DerivedModel
@@ -133,4 +171,3 @@ namespace Canducci.DataMasker.Tests
         }
     }
 }
-
