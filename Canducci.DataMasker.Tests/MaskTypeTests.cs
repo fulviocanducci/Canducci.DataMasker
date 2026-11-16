@@ -114,7 +114,7 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("R** B*****, ***", result.Address);
             Assert.Equal("**/**/1990", result.BirthDate);
             Assert.Equal("192.***.***.***", result.IpAddress);
-            Assert.Equal("1234 **** **** 3456", result.CreditCard);
+            Assert.Equal("************3456", result.CreditCard);
             Assert.Equal("******-*", result.BankAccount);
             Assert.Equal("f*****@g****.com", result.Pix);
             Assert.Equal("****", result.Salary);
