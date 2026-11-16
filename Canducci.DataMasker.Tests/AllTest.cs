@@ -793,7 +793,7 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("*", result.Full);
             Assert.Equal("F", result.Partial);
             Assert.Equal("F", result.FirstCharacters);
-            Assert.Equal("*", result.LastCharacters);
+            Assert.Equal("F", result.LastCharacters);
         }
     }
 
@@ -814,8 +814,8 @@ namespace Canducci.DataMasker.Tests
             var result = DataMasker.Mask(model);
             Assert.Equal("******", result.Full);
             Assert.Equal("F*****", result.Partial);
-            Assert.Equal("*****o", result.FirstCharacters);
-            Assert.Equal("F*****", result.LastCharacters);
+            Assert.Equal("F*****", result.FirstCharacters);
+            Assert.Equal("*****o", result.LastCharacters);
         }
     }
 
