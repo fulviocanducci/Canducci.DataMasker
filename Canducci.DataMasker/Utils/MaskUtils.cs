@@ -154,7 +154,7 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
-            return new string('*', value.Length - 1) + value.Substring(value.Length - 1);
+            return value.Substring(0, 1) + new string('*', value.Length - 1);
         }
 
         internal static string LastCharacters(string value)
@@ -164,9 +164,7 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
-            return value.Length <= 1
-                ? "*"
-                : value.Substring(0, 1) + new string('*', value.Length - 1);
+            return new string('*', value.Length - 1) + value.Substring(value.Length - 1);
         }
 
         internal static string Name(string value)
@@ -427,7 +425,7 @@ namespace Canducci.DataMasker.Utils
                 return PixEmail(value);
             }
 
-            return LastCharacters(value);
+            return FirstCharacters(value);
         }
 
         private static string PixEmail(string value)
