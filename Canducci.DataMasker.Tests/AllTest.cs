@@ -493,12 +493,12 @@ namespace Canducci.DataMasker.Tests
         }
 
         [Fact]
-        public void Mask_ShouldPreservePhoneAndMobileWithInvalidDigitCount()
+        public void Mask_ShouldMaskPhoneAndMobileWithInvalidDigitCount()
         {
             var model = new FormatModel { Phone = "183322123", Mobile = "1899123123" };
             var result = DataMasker.Mask(model);
             Assert.Equal("*********", result.Phone);
-            Assert.Equal("1899123123", result.Mobile);
+            Assert.Equal("**********", result.Mobile);
         }
 
         [Fact]
@@ -1175,6 +1175,62 @@ namespace Canducci.DataMasker.Tests
             [Mask(MaskType.IpAddress)] public string IpAddress { get; set; }
             [Mask(MaskType.CreditCard)] public string CreditCard { get; set; }
             [Mask(MaskType.Pix)] public string Pix { get; set; }
+        }
+    }
+}
+
+
+namespace Canducci.DataMasker.Tests
+{
+    public class ObjectGraphMaskingTests
+    {
+        public class Node
+        {
+            [Mask(MaskType.Name)]
+            public string Name { get; set; }
+
+            public Node Next { get; set; }
+        }
+
+        public class UnsupportedCollectionContainer
+        {
+            public HashSet<ComprehensiveMaskingTests.Address> Addresses { get; set; }
+        }
+
+        [Fact]
+        public void Mask_ShouldPreserveCircularReferencesInClonedGraph()
+        {
+            var source = new Node { Name = "Fulvio" };
+            source.Next = source;
+
+            var result = DataMasker.Mask(source);
+
+            Assert.NotSame(source, result);
+            Assert.Same(result, result.Next);
+            Assert.Equal("F*****", result.Name);
+            Assert.Equal("Fulvio", source.Name);
+            Assert.Same(source, source.Next);
+        }
+
+        [Fact]
+        public void Mask_ShouldFailExplicitlyForUnsupportedCollectionTypes()
+        {
+            var source = new UnsupportedCollectionContainer
+            {
+                Addresses = new HashSet<ComprehensiveMaskingTests.Address>
+                {
+                    new ComprehensiveMaskingTests.Address
+                    {
+                        Street = "Rua Brasil",
+                        ZipCode = "19010000"
+                    }
+                }
+            };
+
+            var exception = Assert.Throws<InvalidOperationException>(() => DataMasker.Mask(source));
+
+            Assert.Contains("Use arrays or IList collections", exception.Message);
+            Assert.Equal("Rua Brasil", System.Linq.Enumerable.First(source.Addresses).Street);
         }
     }
 }
