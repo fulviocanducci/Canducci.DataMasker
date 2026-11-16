@@ -1,12 +1,36 @@
-﻿
 using Canducci.DataMasker.Attributes;
 using System;
+using System.Linq;
 using System.Reflection;
 
 namespace Canducci.DataMasker.Utils
 {
     internal static class MaskConvert<T> where T : class
     {
+        private sealed class PropertyMetadata
+        {
+            internal PropertyMetadata(PropertyInfo property, MaskAttribute attribute)
+            {
+                Property = property;
+                Attribute = attribute;
+            }
+
+            internal PropertyInfo Property { get; }
+
+            internal MaskAttribute Attribute { get; }
+        }
+
+        private static readonly PropertyMetadata[] Properties = typeof(T)
+            .GetProperties(BindingFlags.Public | BindingFlags.Instance)
+            .Where(property =>
+                property.CanRead &&
+                property.CanWrite &&
+                property.GetIndexParameters().Length == 0)
+            .Select(property => new PropertyMetadata(
+                property,
+                property.GetCustomAttribute<MaskAttribute>()))
+            .ToArray();
+
         internal static T Execute(T source, Func<T, T> factory)
         {
             if (source == null)
@@ -41,15 +65,12 @@ namespace Canducci.DataMasker.Utils
 
         private static T CopyProperties(T source, T result)
         {
-            var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            foreach (var property in properties)
+            foreach (var metadata in Properties)
             {
-                if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0)
-                {
-                    continue;
-                }
+                var property = metadata.Property;
                 var value = property.GetValue(source);
-                var attribute = property.GetCustomAttribute<MaskAttribute>();
+                var attribute = metadata.Attribute;
+
                 if (attribute == null || value == null)
                 {
                     property.SetValue(result, value);
