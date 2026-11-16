@@ -1,4 +1,3 @@
-
 using Canducci.DataMasker.Attributes;
 using Canducci.DataMasker.Enums;
 using System;
@@ -9,6 +8,7 @@ using System.Net.Mail;
 using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
+using System.Collections.Generic;
 
 namespace Canducci.DataMasker.Utils
 {
@@ -17,6 +17,25 @@ namespace Canducci.DataMasker.Utils
         private static bool IsNotValue(string value)
         {
             return string.IsNullOrEmpty(value);
+        }
+
+        private static string[] GetTextElements(string value)
+        {
+            var elements = new List<string>();
+            var enumerator = StringInfo.GetTextElementEnumerator(value);
+
+            while (enumerator.MoveNext())
+            {
+                elements.Add((string)enumerator.Current);
+            }
+
+            return elements.ToArray();
+        }
+
+        private static string FirstTextElement(string value)
+        {
+            var elements = GetTextElements(value);
+            return elements.Length == 0 ? string.Empty : elements[0];
         }
 
         internal static string MaskValue(string value, MaskAttribute attribute)
@@ -44,7 +63,7 @@ namespace Canducci.DataMasker.Utils
                     return Custom(value, attribute);
 
                 default:
-                    return value;
+                    throw new InvalidOperationException("Mask strategy is not supported.");
             }
         }
 
@@ -133,7 +152,7 @@ namespace Canducci.DataMasker.Utils
                     return Full(value);
 
                 default:
-                    return value;
+                    throw new InvalidOperationException($"Mask type '{type}' is not supported.");
             }
         }
 
@@ -144,7 +163,7 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
-            return new string('*', value.Length);
+            return new string('*', GetTextElements(value).Length);
         }
 
         internal static string FirstCharacters(string value)
@@ -154,7 +173,8 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
-            return value.Substring(0, 1) + new string('*', value.Length - 1);
+            var elements = GetTextElements(value);
+            return elements[0] + new string('*', elements.Length - 1);
         }
 
         internal static string LastCharacters(string value)
@@ -164,7 +184,8 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
-            return new string('*', value.Length - 1) + value.Substring(value.Length - 1);
+            var elements = GetTextElements(value);
+            return new string('*', elements.Length - 1) + elements[elements.Length - 1];
         }
 
         internal static string Name(string value)
@@ -181,25 +202,22 @@ namespace Canducci.DataMasker.Utils
                     return word;
                 }
 
-                return word.Substring(0, 1) + new string('*', word.Length - 1);
+                var elements = GetTextElements(word);
+                return elements[0] + new string('*', elements.Length - 1);
             }));
         }
 
         internal static string Cpf(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             var digits = GetDigits(value);
 
             if (digits.Length != 11)
             {
-                return value;
+                return Full(value);
             }
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "{0}.***.***-{1}",
                 digits.Substring(0, 3),
                 digits.Substring(9, 2));
@@ -207,19 +225,15 @@ namespace Canducci.DataMasker.Utils
 
         internal static string Cnpj(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             var digits = GetDigits(value);
 
             if (digits.Length != 14)
             {
-                return value;
+                return Full(value);
             }
 
             return string.Format(
+                CultureInfo.InvariantCulture,
                 "{0}.***/****-{1}",
                 digits.Substring(0, 2),
                 digits.Substring(12, 2));
@@ -227,30 +241,26 @@ namespace Canducci.DataMasker.Utils
 
         internal static string Rg(string value)
         {
-            if (IsNotValue(value))
+            var elements = GetTextElements(value);
+
+            if (elements.Length <= 3)
             {
-                return value;
+                return Full(value);
             }
 
-            if (value.Length <= 3)
-            {
-                return value;
-            }
-
-            return new string('*', value.Length - 3)
-                + value.Substring(value.Length - 3);
+            return new string('*', elements.Length - 3)
+                + string.Concat(elements.Skip(elements.Length - 3));
         }
 
         internal static string Email(string value)
         {
             if (!IsValidEmail(value))
             {
-                return value;
+                return Full(value);
             }
 
             var index = value.IndexOf('@');
-
-            return value.Substring(0, 1)
+            return FirstTextElement(value.Substring(0, index))
                 + "***"
                 + value.Substring(index);
         }
@@ -267,19 +277,17 @@ namespace Canducci.DataMasker.Utils
 
         internal static string Cep(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             var digits = GetDigits(value);
 
             if (digits.Length != 8)
             {
-                return value;
+                return Full(value);
             }
 
-            return string.Format("{0}-***", digits.Substring(0, 5));
+            return string.Format(
+                CultureInfo.InvariantCulture,
+                "{0}-***",
+                digits.Substring(0, 5));
         }
 
         internal static string Address(string value)
@@ -296,34 +304,30 @@ namespace Canducci.DataMasker.Utils
                     return word;
                 }
 
-                var result = word.Select(character =>
+                var elements = GetTextElements(word);
+                var firstLetter = Array.FindIndex(
+                    elements,
+                    element => element.Any(char.IsLetter));
+
+                for (var index = 0; index < elements.Length; index++)
                 {
-                    if (char.IsDigit(character) || char.IsLetter(character))
+                    if (index == firstLetter)
                     {
-                        return '*';
+                        continue;
                     }
 
-                    return character;
-                }).ToArray();
-
-                var firstLetter = Array.FindIndex(word.ToCharArray(), char.IsLetter);
-
-                if (firstLetter >= 0)
-                {
-                    result[firstLetter] = word[firstLetter];
+                    if (elements[index].Any(character => char.IsLetterOrDigit(character)))
+                    {
+                        elements[index] = "*";
+                    }
                 }
 
-                return new string(result);
+                return string.Concat(elements);
             }));
         }
 
         internal static string BirthDate(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             if (!DateTime.TryParseExact(
                 value,
                 "dd/MM/yyyy",
@@ -331,17 +335,17 @@ namespace Canducci.DataMasker.Utils
                 DateTimeStyles.None,
                 out var date))
             {
-                return value;
+                return Full(value);
             }
 
-            return string.Format("**/**/{0:yyyy}", date);
+            return string.Format(CultureInfo.InvariantCulture, "**/**/{0:yyyy}", date);
         }
 
         internal static string IpAddress(string value)
         {
-            if (IsNotValue(value) || !IPAddress.TryParse(value, out var address))
+            if (!IPAddress.TryParse(value, out var address))
             {
-                return value;
+                return Full(value);
             }
 
             var bytes = address.GetAddressBytes();
@@ -360,21 +364,16 @@ namespace Canducci.DataMasker.Utils
                 return firstGroup + string.Concat(Enumerable.Repeat(":****", 7));
             }
 
-            return value;
+            return Full(value);
         }
 
         internal static string CreditCard(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             var digits = GetDigits(value);
 
             if (digits.Length < 15 || digits.Length > 19)
             {
-                return value;
+                return Full(value);
             }
 
             var digitsToMask = digits.Length - 4;
@@ -404,22 +403,12 @@ namespace Canducci.DataMasker.Utils
 
         internal static string BankAccount(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             return new string(value.Select(character =>
                 char.IsDigit(character) ? '*' : character).ToArray());
         }
 
         internal static string Pix(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             if (value.Contains("@"))
             {
                 return PixEmail(value);
@@ -432,39 +421,35 @@ namespace Canducci.DataMasker.Utils
         {
             if (!IsValidEmail(value))
             {
-                return value;
+                return Full(value);
             }
 
             var parts = value.Split('@');
             var domain = parts[1].Split('.');
+            var userElements = GetTextElements(parts[0]);
+            var domainElements = GetTextElements(domain[0]);
 
-            return parts[0].Substring(0, 1)
-                + new string('*', parts[0].Length - 1)
+            return userElements[0]
+                + new string('*', userElements.Length - 1)
                 + "@"
-                + domain[0].Substring(0, 1)
-                + new string('*', domain[0].Length - 1)
+                + domainElements[0]
+                + new string('*', domainElements.Length - 1)
                 + "."
                 + string.Join(".", domain.Skip(1));
         }
-
 
         private static string MaskFormattedDigits(
             string value,
             int visible,
             int expectedDigits)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             var digits = GetDigits(value);
             var hasBrazilianCountryCode = digits.Length == expectedDigits + 2 &&
                 digits.StartsWith("55", StringComparison.Ordinal);
 
             if (digits.Length != expectedDigits && !hasBrazilianCountryCode)
             {
-                return value;
+                return Full(value);
             }
 
             var nationalDigits = hasBrazilianCountryCode
@@ -473,7 +458,7 @@ namespace Canducci.DataMasker.Utils
 
             if (nationalDigits.Length != expectedDigits)
             {
-                return value;
+                return Full(value);
             }
 
             var areaCodeDigits = 2;
@@ -509,7 +494,6 @@ namespace Canducci.DataMasker.Utils
             return result.ToString();
         }
 
-
         private static bool IsValidEmail(string value)
         {
             if (IsNotValue(value) || value.Any(char.IsWhiteSpace))
@@ -536,11 +520,6 @@ namespace Canducci.DataMasker.Utils
 
         private static string GetDigits(string value)
         {
-            if (IsNotValue(value))
-            {
-                return value;
-            }
-
             return new string(value.Where(char.IsDigit).ToArray());
         }
     }

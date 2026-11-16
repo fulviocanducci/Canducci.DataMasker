@@ -457,7 +457,7 @@ namespace Canducci.DataMasker.Tests
         {
             var model = new FormatModel { Email = "fulvio@" };
             var result = DataMasker.Mask(model);
-            Assert.Equal("fulvio@", result.Email);
+            Assert.Equal("*******", result.Email);
         }
 
         [Fact]
@@ -520,7 +520,7 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("**/**/1990", result.BirthDate);
             model.BirthDate = "31/02/1990";
             result = DataMasker.Mask(model);
-            Assert.Equal("31/02/1990", result.BirthDate);
+            Assert.Equal("**********", result.BirthDate);
         }
 
         [Fact]
@@ -531,7 +531,7 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("192.***.***.***", result.IpAddress);
             model.IpAddress = "192.168.1.999";
             result = DataMasker.Mask(model);
-            Assert.Equal("192.168.1.999", result.IpAddress);
+            Assert.Equal("*************", result.IpAddress);
             model.IpAddress = "2001:db8:85a3::8a2e:370:7334";
             result = DataMasker.Mask(model);
             Assert.Equal("2001:****:****:****:****:****:****:****", result.IpAddress);
@@ -557,10 +557,10 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("***************6789", result.CreditCard);
             model.CreditCard = "12345678901234";
             result = DataMasker.Mask(model);
-            Assert.Equal("12345678901234", result.CreditCard);
+            Assert.Equal("**************", result.CreditCard);
             model.CreditCard = "12345678901234567890";
             result = DataMasker.Mask(model);
-            Assert.Equal("12345678901234567890", result.CreditCard);
+            Assert.Equal("********************", result.CreditCard);
         }
 
         [Fact]
@@ -584,7 +584,7 @@ namespace Canducci.DataMasker.Tests
         {
             var model = new FormatModel { Pix = "fulvio@" };
             var result = DataMasker.Mask(model);
-            Assert.Equal("fulvio@", result.Pix);
+            Assert.Equal("*******", result.Pix);
         }
     }
 
@@ -936,8 +936,8 @@ namespace Canducci.DataMasker.Tests
         {
             var model = new ValidationModel { Nome = "Fulvio", Cpf = "123456", Cnpj = "123456789" };
             var result = DataMasker.Mask(model);
-            Assert.Equal("123456", result.Cpf);
-            Assert.Equal("123456789", result.Cnpj);
+            Assert.Equal("******", result.Cpf);
+            Assert.Equal("*********", result.Cnpj);
         }
 
         [Fact]
@@ -966,6 +966,215 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("R** S** J***, ***", result.Endereco);
             Assert.Equal("João Gonçalves", model.Nome);
             Assert.Equal("Rua São João, 123", model.Endereco);
+        }
+    }
+}
+
+
+namespace Canducci.DataMasker.Tests
+{
+    public class ComprehensiveMaskingTests
+    {
+        public class FactoryModel
+        {
+            [Mask(MaskType.Name)]
+            public string Name { get; set; }
+        }
+
+        public class Address
+        {
+            [Mask(MaskType.Address)]
+            public string Street { get; set; }
+
+            [Mask(MaskType.Cep)]
+            public string ZipCode { get; set; }
+        }
+
+        public class CustomerWithAddresses
+        {
+            [Mask(MaskType.Name)]
+            public string Name { get; set; }
+
+            public Address MainAddress { get; set; }
+
+            public List<Address> Addresses { get; set; }
+        }
+
+        public class PrivateSetterModel
+        {
+            public PrivateSetterModel()
+            {
+                Name = "Constructor";
+            }
+
+            public string Name { get; private set; }
+
+            public void SetName(string value)
+            {
+                Name = value;
+            }
+        }
+
+        public class UnicodeModel
+        {
+            [Mask(MaskType.Name, MaskStrategy.FirstCharacters)]
+            public string First { get; set; }
+
+            [Mask(MaskType.Name, MaskStrategy.LastCharacters)]
+            public string Last { get; set; }
+
+            [Mask(MaskType.Name, MaskStrategy.Full)]
+            public string Full { get; set; }
+
+            [Mask(MaskType.Name)]
+            public string Name { get; set; }
+        }
+
+        [Fact]
+        public void Mask_ShouldRejectFactoryReturningSourceWithoutChangingIt()
+        {
+            var source = new FactoryModel { Name = "Fulvio Silva" };
+
+            var exception = Assert.Throws<InvalidOperationException>(
+                () => DataMasker.Mask(source, instance => instance));
+
+            Assert.Contains("new instance", exception.Message);
+            Assert.Equal("Fulvio Silva", source.Name);
+        }
+
+        [Fact]
+        public void Mask_ShouldRecursivelyMaskNestedObjectsAndLists()
+        {
+            var source = new CustomerWithAddresses
+            {
+                Name = "Fulvio Silva",
+                MainAddress = new Address
+                {
+                    Street = "Rua Brasil, 123",
+                    ZipCode = "19010000"
+                },
+                Addresses = new List<Address>
+                {
+                    new Address { Street = "Avenida Paulista, 1000", ZipCode = "01311000" },
+                    new Address { Street = "Rua São João, 45", ZipCode = "19010000" }
+                }
+            };
+
+            var result = DataMasker.Mask(source);
+
+            Assert.NotSame(source, result);
+            Assert.NotSame(source.MainAddress, result.MainAddress);
+            Assert.NotSame(source.Addresses, result.Addresses);
+            Assert.NotSame(source.Addresses[0], result.Addresses[0]);
+            Assert.Equal("F***** S****", result.Name);
+            Assert.Equal("R** B*****, ***", result.MainAddress.Street);
+            Assert.Equal("19010-***", result.MainAddress.ZipCode);
+            Assert.Equal("A****** P******, ****", result.Addresses[0].Street);
+            Assert.Equal("01311-***", result.Addresses[0].ZipCode);
+            Assert.Equal("Rua Brasil, 123", source.MainAddress.Street);
+            Assert.Equal("Avenida Paulista, 1000", source.Addresses[0].Street);
+        }
+
+        [Fact]
+        public void Mask_ShouldCloneArraysAndMaskTheirItems()
+        {
+            var source = new CustomerWithAddresses
+            {
+                Addresses = new List<Address>
+                {
+                    new Address { Street = "Rua Brasil", ZipCode = "19010000" }
+                }
+            };
+
+            var arraySource = new Address[]
+            {
+                new Address { Street = "Rua Brasil", ZipCode = "19010000" }
+            };
+
+            var result = DataMasker.Mask(new ArrayContainer { Addresses = arraySource });
+
+            Assert.NotSame(arraySource, result.Addresses);
+            Assert.NotSame(arraySource[0], result.Addresses[0]);
+            Assert.Equal("R** B*****", result.Addresses[0].Street);
+            Assert.Equal("19010-***", result.Addresses[0].ZipCode);
+        }
+
+        public class ArrayContainer
+        {
+            public Address[] Addresses { get; set; }
+        }
+
+        [Fact]
+        public void Mask_ShouldIgnorePropertiesWithNonPublicSetters()
+        {
+            var source = new PrivateSetterModel();
+            source.SetName("Sensitive source value");
+
+            var result = DataMasker.Mask(source);
+
+            Assert.Equal("Sensitive source value", source.Name);
+            Assert.Equal("Constructor", result.Name);
+        }
+
+        [Fact]
+        public void Mask_ShouldTreatUnicodeTextElementsAsSingleCharacters()
+        {
+            var source = new UnicodeModel
+            {
+                First = "😀abc",
+                Last = "abc😀",
+                Full = "A😀e\u0301",
+                Name = "João 👨‍👩‍👧‍👦"
+            };
+
+            var result = DataMasker.Mask(source);
+
+            Assert.Equal("😀***", result.First);
+            Assert.Equal("***😀", result.Last);
+            Assert.Equal("***", result.Full);
+            Assert.Equal("J*** 👨‍👩‍👧‍👦", result.Name);
+        }
+
+        [Fact]
+        public void Mask_ShouldMaskMalformedStructuredValuesCompletely()
+        {
+            var source = new InvalidValuesModel
+            {
+                Cpf = "123456",
+                Cnpj = "123456789",
+                Email = "fulvio@",
+                Phone = "123",
+                Cep = "123",
+                BirthDate = "31/02/1990",
+                IpAddress = "not-an-ip",
+                CreditCard = "12345678901234",
+                Pix = "fulvio@"
+            };
+
+            var result = DataMasker.Mask(source);
+
+            Assert.Equal("******", result.Cpf);
+            Assert.Equal("*********", result.Cnpj);
+            Assert.Equal("*******", result.Email);
+            Assert.Equal("***", result.Phone);
+            Assert.Equal("***", result.Cep);
+            Assert.Equal("**********", result.BirthDate);
+            Assert.Equal("*********", result.IpAddress);
+            Assert.Equal("**************", result.CreditCard);
+            Assert.Equal("*******", result.Pix);
+        }
+
+        public class InvalidValuesModel
+        {
+            [Mask(MaskType.Cpf)] public string Cpf { get; set; }
+            [Mask(MaskType.Cnpj)] public string Cnpj { get; set; }
+            [Mask(MaskType.Email)] public string Email { get; set; }
+            [Mask(MaskType.Phone)] public string Phone { get; set; }
+            [Mask(MaskType.Cep)] public string Cep { get; set; }
+            [Mask(MaskType.BirthDate)] public string BirthDate { get; set; }
+            [Mask(MaskType.IpAddress)] public string IpAddress { get; set; }
+            [Mask(MaskType.CreditCard)] public string CreditCard { get; set; }
+            [Mask(MaskType.Pix)] public string Pix { get; set; }
         }
     }
 }
