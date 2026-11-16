@@ -45,6 +45,11 @@ namespace Canducci.DataMasker.Utils
                 return value;
             }
 
+            if (attribute.Strategy == MaskStrategy.Partial && string.IsNullOrWhiteSpace(value))
+            {
+                return value;
+            }
+
             switch (attribute.Strategy)
             {
                 case MaskStrategy.Full:

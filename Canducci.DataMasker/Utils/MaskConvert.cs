@@ -156,7 +156,16 @@ namespace Canducci.DataMasker.Utils
 
             var type = source.GetType();
 
-            if (type.IsValueType || source is string || type == typeof(Type))
+            if (type.IsValueType ||
+                source is string ||
+                source is Type ||
+                source is Uri ||
+                source is Version ||
+                source is System.Globalization.CultureInfo ||
+                source is TimeZoneInfo ||
+                source is System.Net.IPAddress ||
+                source is Delegate ||
+                source is MemberInfo)
             {
                 return source;
             }
@@ -168,6 +177,11 @@ namespace Canducci.DataMasker.Utils
 
             if (source is Array sourceArray)
             {
+                if (sourceArray.Rank != 1)
+                {
+                    throw new InvalidOperationException("Only one-dimensional arrays are supported.");
+                }
+
                 var elementType = type.GetElementType();
                 var resultArray = Array.CreateInstance(elementType, sourceArray.Length);
                 visited.Add(source, resultArray);

@@ -453,7 +453,7 @@ namespace Canducci.DataMasker.Tests
         }
 
         [Fact]
-        public void Mask_ShouldPreserveInvalidEmail()
+        public void Mask_ShouldMaskInvalidEmail()
         {
             var model = new FormatModel { Email = "fulvio@" };
             var result = DataMasker.Mask(model);
@@ -497,7 +497,7 @@ namespace Canducci.DataMasker.Tests
         {
             var model = new FormatModel { Phone = "183322123", Mobile = "1899123123" };
             var result = DataMasker.Mask(model);
-            Assert.Equal("183322123", result.Phone);
+            Assert.Equal("*********", result.Phone);
             Assert.Equal("1899123123", result.Mobile);
         }
 
@@ -537,7 +537,7 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("2001:****:****:****:****:****:****:****", result.IpAddress);
             model.IpAddress = "not-an-ip";
             result = DataMasker.Mask(model);
-            Assert.Equal("not-an-ip", result.IpAddress);
+            Assert.Equal("*********", result.IpAddress);
         }
 
         [Fact]
@@ -580,7 +580,7 @@ namespace Canducci.DataMasker.Tests
         }
 
         [Fact]
-        public void Mask_ShouldPreserveInvalidPixEmail()
+        public void Mask_ShouldMaskInvalidPixEmail()
         {
             var model = new FormatModel { Pix = "fulvio@" };
             var result = DataMasker.Mask(model);
@@ -932,7 +932,7 @@ namespace Canducci.DataMasker.Tests
         }
 
         [Fact]
-        public void Mask_ShouldPreserveInvalidCpfAndCnpj()
+        public void Mask_ShouldMaskInvalidCpfAndCnpj()
         {
             var model = new ValidationModel { Nome = "Fulvio", Cpf = "123456", Cnpj = "123456789" };
             var result = DataMasker.Mask(model);
@@ -945,7 +945,7 @@ namespace Canducci.DataMasker.Tests
         {
             var model = new ValidationModel { Nome = "Fulvio", Rg = "12" };
             var result = DataMasker.Mask(model);
-            Assert.Equal("12", result.Rg);
+            Assert.Equal("**", result.Rg);
         }
     }
 
@@ -1069,7 +1069,7 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("F***** S****", result.Name);
             Assert.Equal("R** B*****, ***", result.MainAddress.Street);
             Assert.Equal("19010-***", result.MainAddress.ZipCode);
-            Assert.Equal("A****** P******, ****", result.Addresses[0].Street);
+            Assert.Equal("A****** P*******, ****", result.Addresses[0].Street);
             Assert.Equal("01311-***", result.Addresses[0].ZipCode);
             Assert.Equal("Rua Brasil, 123", source.MainAddress.Street);
             Assert.Equal("Avenida Paulista, 1000", source.Addresses[0].Street);
