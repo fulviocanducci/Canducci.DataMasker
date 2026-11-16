@@ -9,15 +9,27 @@ namespace Canducci.DataMasker.Utils
     {
         private sealed class PropertyMetadata
         {
-            internal PropertyMetadata(PropertyInfo property, MaskAttribute attribute)
+            internal PropertyMetadata(PropertyInfo property)
             {
                 Property = property;
-                Attribute = attribute;
+                Attribute = new Lazy<MaskAttribute>(() =>
+                {
+                    try
+                    {
+                        return property.GetCustomAttribute<MaskAttribute>();
+                    }
+                    catch (Exception exception) when (exception is ArgumentException || exception is InvalidOperationException)
+                    {
+                        throw new InvalidOperationException(
+                            $"The mask configuration for property '{property.Name}' is invalid.",
+                            exception);
+                    }
+                });
             }
 
             internal PropertyInfo Property { get; }
 
-            internal MaskAttribute Attribute { get; }
+            internal Lazy<MaskAttribute> Attribute { get; }
         }
 
         private static readonly PropertyMetadata[] Properties = typeof(T)
@@ -26,9 +38,7 @@ namespace Canducci.DataMasker.Utils
                 property.CanRead &&
                 property.CanWrite &&
                 property.GetIndexParameters().Length == 0)
-            .Select(property => new PropertyMetadata(
-                property,
-                property.GetCustomAttribute<MaskAttribute>()))
+            .Select(property => new PropertyMetadata(property))
             .ToArray();
 
         internal static T Execute(T source, Func<T, T> factory)
@@ -69,7 +79,7 @@ namespace Canducci.DataMasker.Utils
             {
                 var property = metadata.Property;
                 var value = property.GetValue(source);
-                var attribute = metadata.Attribute;
+                var attribute = metadata.Attribute.Value;
 
                 if (attribute == null || value == null)
                 {
