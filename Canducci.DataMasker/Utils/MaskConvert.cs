@@ -41,9 +41,10 @@ namespace Canducci.DataMasker.Utils
 
         private static T CopyProperties(T source, T result)
         {
-            foreach (var property in typeof(T).GetProperties())
+            var properties = typeof(T).GetProperties(BindingFlags.Public | BindingFlags.Instance);
+            foreach (var property in properties)
             {
-                if (!property.CanRead || !property.CanWrite)
+                if (!property.CanRead || !property.CanWrite || property.GetIndexParameters().Length > 0)
                 {
                     continue;
                 }
