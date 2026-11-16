@@ -123,7 +123,7 @@ namespace Canducci.DataMasker.Utils
             object result,
             IDictionary<object, object> visited)
         {
-            if (source is IList sourceList)
+            if (source is IList sourceList && !(source is Array))
             {
                 if (!(result is IList resultList))
                 {
