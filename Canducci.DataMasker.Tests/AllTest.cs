@@ -1234,3 +1234,71 @@ namespace Canducci.DataMasker.Tests
         }
     }
 }
+
+
+namespace Canducci.DataMasker.Tests
+{
+    public class ListAddressEdgeCaseTests
+    {
+        [Fact]
+        public void Mask_ShouldPreserveNullItemsInsideAddressList()
+        {
+            var source = new ComprehensiveMaskingTests.CustomerWithAddresses
+            {
+                Addresses = new List<ComprehensiveMaskingTests.Address>
+                {
+                    null,
+                    new ComprehensiveMaskingTests.Address
+                    {
+                        Street = "Rua Brasil",
+                        ZipCode = "19010000"
+                    },
+                    null
+                }
+            };
+
+            var result = DataMasker.Mask(source);
+
+            Assert.NotSame(source.Addresses, result.Addresses);
+            Assert.Equal(3, result.Addresses.Count);
+            Assert.Null(result.Addresses[0]);
+            Assert.Null(result.Addresses[2]);
+            Assert.NotSame(source.Addresses[1], result.Addresses[1]);
+            Assert.Equal("R** B*****", result.Addresses[1].Street);
+            Assert.Equal("19010-***", result.Addresses[1].ZipCode);
+            Assert.Same(null, source.Addresses[0]);
+            Assert.Equal("Rua Brasil", source.Addresses[1].Street);
+        }
+
+        [Fact]
+        public void Mask_ShouldPreserveRepeatedAddressReferencesInsideList()
+        {
+            var address = new ComprehensiveMaskingTests.Address
+            {
+                Street = "Rua Brasil",
+                ZipCode = "19010000"
+            };
+
+            var source = new ComprehensiveMaskingTests.CustomerWithAddresses
+            {
+                Addresses = new List<ComprehensiveMaskingTests.Address>
+                {
+                    address,
+                    address
+                }
+            };
+
+            var result = DataMasker.Mask(source);
+
+            Assert.NotSame(source.Addresses, result.Addresses);
+            Assert.NotSame(address, result.Addresses[0]);
+            Assert.Same(result.Addresses[0], result.Addresses[1]);
+            Assert.Equal("R** B*****", result.Addresses[0].Street);
+            Assert.Equal("19010-***", result.Addresses[0].ZipCode);
+            Assert.Equal("Rua Brasil", address.Street);
+            Assert.Equal("19010000", address.ZipCode);
+            Assert.Same(address, source.Addresses[0]);
+            Assert.Same(address, source.Addresses[1]);
+        }
+    }
+}
