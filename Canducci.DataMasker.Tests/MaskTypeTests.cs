@@ -108,8 +108,8 @@ namespace Canducci.DataMasker.Tests
             Assert.Equal("12.***/****-99", result.Cnpj);
             Assert.Equal("******789", result.Rg);
             Assert.Equal("f***@gmail.com", result.Email);
-            Assert.Equal("******1234", result.Phone);
-            Assert.Equal("*******1234", result.Mobile);
+            Assert.Equal("18****1234", result.Phone);
+            Assert.Equal("18*****1234", result.Mobile);
             Assert.Equal("19010-***", result.Cep);
             Assert.Equal("R** B*****, ***", result.Address);
             Assert.Equal("**/**/1990", result.BirthDate);
