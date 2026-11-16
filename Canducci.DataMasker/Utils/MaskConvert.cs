@@ -123,6 +123,24 @@ namespace Canducci.DataMasker.Utils
             object result,
             IDictionary<object, object> visited)
         {
+            if (source is IList sourceList && !(source is Array))
+            {
+                if (!(result is IList resultList))
+                {
+                    throw new InvalidOperationException(
+                        $"The factory result for collection type '{source.GetType().FullName}' must implement IList.");
+                }
+
+                resultList.Clear();
+
+                foreach (var item in sourceList)
+                {
+                    resultList.Add(CloneValue(item, visited));
+                }
+
+                return;
+            }
+
             foreach (var metadata in GetProperties(source.GetType()))
             {
                 var property = metadata.Property;
