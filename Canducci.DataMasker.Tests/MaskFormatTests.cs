@@ -1,4 +1,4 @@
-﻿using Canducci.DataMasker.Attributes;
+using Canducci.DataMasker.Attributes;
 using Canducci.DataMasker.Enums;
 
 namespace Canducci.DataMasker.Tests
@@ -91,6 +91,44 @@ namespace Canducci.DataMasker.Tests
 
             Assert.Equal("(18) ****-1234", result.Phone);
             Assert.Equal("(18) *****-1234", result.Mobile);
+        }
+
+        [Fact]
+        public void Mask_ShouldHandlePhoneAndMobileWithBrazilianCountryCode()
+        {
+            var model = new FormatModel
+            {
+                Phone = "+55 (18) 3322-1234",
+                Mobile = "+55 (18) 99123-1234"
+            };
+
+            var result = DataMasker.Mask(model);
+
+            Assert.Equal("+55 (18) ****-1234", result.Phone);
+            Assert.Equal("+55 (18) *****-1234", result.Mobile);
+
+            model.Phone = "551833221234";
+            model.Mobile = "5518991231234";
+
+            result = DataMasker.Mask(model);
+
+            Assert.Equal("5518****1234", result.Phone);
+            Assert.Equal("5518*****1234", result.Mobile);
+        }
+
+        [Fact]
+        public void Mask_ShouldHandleUnformattedPhoneAndMobile()
+        {
+            var model = new FormatModel
+            {
+                Phone = "1833221234",
+                Mobile = "18991231234"
+            };
+
+            var result = DataMasker.Mask(model);
+
+            Assert.Equal("18****1234", result.Phone);
+            Assert.Equal("18*****1234", result.Mobile);
         }
 
         [Fact]
