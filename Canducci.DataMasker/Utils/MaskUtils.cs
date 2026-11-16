@@ -4,7 +4,9 @@ using Canducci.DataMasker.Enums;
 using System;
 using System.Globalization;
 using System.Linq;
+using System.Net;
 using System.Net.Mail;
+using System.Net.Sockets;
 using System.Reflection;
 using System.Text;
 
@@ -339,31 +341,28 @@ namespace Canducci.DataMasker.Utils
 
         internal static string IpAddress(string value)
         {
-            if (IsNotValue(value))
+            if (IsNotValue(value) || !IPAddress.TryParse(value, out var address))
             {
                 return value;
             }
 
-            var parts = value.Split('.');
+            var bytes = address.GetAddressBytes();
 
-            if (parts.Length != 4)
+            if (address.AddressFamily == AddressFamily.InterNetwork)
             {
-                return value;
-            }
-
-            foreach (var part in parts)
-            {
-                if (!byte.TryParse(
-                    part,
-                    NumberStyles.None,
+                return string.Format(
                     CultureInfo.InvariantCulture,
-                    out _))
-                {
-                    return value;
-                }
+                    "{0}.***.***.***",
+                    bytes[0]);
             }
 
-            return string.Format("{0}.***.***.***", parts[0]);
+            if (address.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                var firstGroup = ((bytes[0] << 8) | bytes[1]).ToString("x", CultureInfo.InvariantCulture);
+                return firstGroup + string.Concat(Enumerable.Repeat(":****", 7));
+            }
+
+            return value;
         }
 
         internal static string CreditCard(string value)
@@ -375,15 +374,34 @@ namespace Canducci.DataMasker.Utils
 
             var digits = GetDigits(value);
 
-            if (digits.Length != 16)
+            if (digits.Length < 15 || digits.Length > 19)
             {
                 return value;
             }
 
-            return string.Format(
-                "{0} **** **** {1}",
-                digits.Substring(0, 4),
-                digits.Substring(12, 4));
+            var digitsToMask = digits.Length - 4;
+            var maskedDigits = 0;
+            var result = new StringBuilder(value.Length);
+
+            foreach (var character in value)
+            {
+                if (!char.IsDigit(character))
+                {
+                    result.Append(character);
+                    continue;
+                }
+
+                if (maskedDigits < digitsToMask)
+                {
+                    result.Append('*');
+                    maskedDigits++;
+                    continue;
+                }
+
+                result.Append(character);
+            }
+
+            return result.ToString();
         }
 
         internal static string BankAccount(string value)
