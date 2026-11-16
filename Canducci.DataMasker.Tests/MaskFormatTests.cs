@@ -163,6 +163,18 @@ namespace Canducci.DataMasker.Tests
             result = DataMasker.Mask(model);
 
             Assert.Equal("192.168.1.999", result.IpAddress);
+
+            model.IpAddress = "2001:db8:85a3::8a2e:370:7334";
+
+            result = DataMasker.Mask(model);
+
+            Assert.Equal("2001:****:****:****:****:****:****:****", result.IpAddress);
+
+            model.IpAddress = "not-an-ip";
+
+            result = DataMasker.Mask(model);
+
+            Assert.Equal("not-an-ip", result.IpAddress);
         }
 
         [Fact]
@@ -175,13 +187,37 @@ namespace Canducci.DataMasker.Tests
 
             var result = DataMasker.Mask(model);
 
-            Assert.Equal("1234 **** **** 3456", result.CreditCard);
+            Assert.Equal("************3456", result.CreditCard);
 
             model.CreditCard = "123456789012345";
 
             result = DataMasker.Mask(model);
 
-            Assert.Equal("123456789012345", result.CreditCard);
+            Assert.Equal("***********2345", result.CreditCard);
+
+            model.CreditCard = "4111-1111-1111-1111";
+
+            result = DataMasker.Mask(model);
+
+            Assert.Equal("****-****-****-1111", result.CreditCard);
+
+            model.CreditCard = "1234567890123456789";
+
+            result = DataMasker.Mask(model);
+
+            Assert.Equal("***************6789", result.CreditCard);
+
+            model.CreditCard = "12345678901234";
+
+            result = DataMasker.Mask(model);
+
+            Assert.Equal("12345678901234", result.CreditCard);
+
+            model.CreditCard = "12345678901234567890";
+
+            result = DataMasker.Mask(model);
+
+            Assert.Equal("12345678901234567890", result.CreditCard);
         }
 
         [Fact]
